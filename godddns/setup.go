@@ -3,10 +3,11 @@ package godddns
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/xlzd/gotp"
 )
@@ -17,10 +18,17 @@ import (
 	This script setup and connect two nodes with given information
 */
 
+//Send by active registration node
 type Credential struct {
 	NodeUUID string //The remote node UUID
 	Username string //The username that the account is using
 	Password string //The password that the account is using
+}
+
+//Return from registrated node
+type TOTPPayload struct {
+	TOTPSecret   string
+	ReflectionIP string
 }
 
 /*
@@ -28,7 +36,7 @@ type Credential struct {
 	Establish connection to a new node using a given UUID
 	A node must be registered with AddNode first before StartConenction can be called
 */
-func (s *ServiceRouter) StartConnection(targetNodeUUID string, username string, password string) (string, error) {
+func (s *ServiceRouter) StartConnection(targetNodeUUID string, initIPAddr string, useHTTPS bool, username string, password string) (string, error) {
 	//Look for the target node
 	var targetNode *Node = nil
 	for _, node := range s.NodeMap {
@@ -39,13 +47,21 @@ func (s *ServiceRouter) StartConnection(targetNodeUUID string, username string, 
 		}
 	}
 
+	if targetNode == nil {
+		return "", errors.New("node not registered")
+	}
+
 	postBody, _ := json.Marshal(map[string]string{
 		"NodeUUID": s.Options.DeviceUUID,
 		"Username": username,
 		"Password": password,
 	})
 	responseBody := bytes.NewBuffer(postBody)
-	resp, err := http.Post(targetNode.ConnectionEndpoint, "application/json", responseBody)
+	protocol := "http://"
+	if useHTTPS {
+		protocol = "https://"
+	}
+	resp, err := http.Post(protocol+initIPAddr+":"+strconv.Itoa(targetNode.Port)+targetNode.ConnectionRelpath, "application/json", responseBody)
 	if err != nil {
 		return "", err
 	}
@@ -54,9 +70,18 @@ func (s *ServiceRouter) StartConnection(targetNodeUUID string, username string, 
 	if err != nil {
 		log.Fatalln(err)
 	}
-	sb := string(body)
+
+	payload := TOTPPayload{}
+	err = json.Unmarshal(body, &payload)
 	resp.Body.Close()
-	return sb, nil
+	if err != nil {
+		return string(body), err
+	}
+
+	targetNode.ReflectedIP = payload.ReflectionIP
+	targetNode.totpSecret = payload.TOTPSecret
+	log.Println(payload)
+	return payload.TOTPSecret, nil
 }
 
 /*
@@ -75,7 +100,12 @@ func (s *ServiceRouter) HandleConnectionEstablishResponse(w http.ResponseWriter,
 	}
 
 	//Validate the credential
-	fmt.Println(cred)
+	if !s.Options.AuthFunction(cred.Username, cred.Password) {
+		//Unauthorized
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Incorrect username or password"))
+		return
+	}
 
 	//Generate TOTP
 	totpSecret := gotp.RandomSecret(32)
@@ -86,6 +116,14 @@ func (s *ServiceRouter) HandleConnectionEstablishResponse(w http.ResponseWriter,
 		TOTPSecret: totpSecret,
 	})
 
+	//Construct response
+	payload := TOTPPayload{
+		TOTPSecret:   totpSecret,
+		ReflectionIP: r.RemoteAddr,
+	}
+
+	result, _ := json.Marshal(payload)
+
 	//Return TOTP to request client
-	w.Write([]byte(totpSecret))
+	w.Write(result)
 }

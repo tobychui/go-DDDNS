@@ -9,7 +9,11 @@ import (
 
 //Demo function for validate user account
 func ValidateCred(username string, password string) bool {
-	return true
+	if username == "user" && password == "123456" {
+		return true
+	} else {
+		return false
+	}
 }
 
 func main() {
@@ -27,6 +31,7 @@ func main() {
 	//Start server router connection handler
 	go func() {
 		serverHandler.HandleFunc("/connect", serverRouter.HandleConnectionEstablishResponse)
+		serverHandler.HandleFunc("/heartbeat", serverRouter.HandleHeartBeatRequest)
 		log.Println("Server Router Started")
 		http.ListenAndServe(":8081", serverHandler)
 	}()
@@ -41,25 +46,30 @@ func main() {
 	//Start server router connection handler
 	go func() {
 		clientHandler.HandleFunc("/connect", clientRouter.HandleConnectionEstablishResponse)
+		clientHandler.HandleFunc("/heartbeat", clientRouter.HandleHeartBeatRequest)
 		log.Println("Client Router Started")
 		http.ListenAndServe(":8082", clientHandler)
 	}()
 
 	//Add server node into the client list
-	clientRouter.AddNode("server", "http://127.0.0.1:8081/connect", "")
+	c2sNode := clientRouter.NewNode("server", 8081, "/connect", "/heartbeat")
+	clientRouter.AddNode(c2sNode)
 
 	//Add client node into the server list
-	serverRouter.AddNode("client", "http://127.0.0.1:8082/connect", "")
+	s2cNode := serverRouter.NewNode("client", 8082, "/connect", "/heartbeat")
+	serverRouter.AddNode(s2cNode)
 
 	//Generate client -> server TOTP
-	clientToServer, err := clientRouter.StartConnection("server", "user", "123456")
+	clientToServer, err := clientRouter.StartConnection("server", "127.0.0.1", false, "user", "123456")
 	if err != nil {
+		log.Println("Unable to get TOTP from serverRouter", clientToServer)
 		log.Fatal(err)
 	}
 
 	//Generate server -> client TOTP
-	serverToClient, err := serverRouter.StartConnection("client", "user", "123456")
+	serverToClient, err := serverRouter.StartConnection("client", "127.0.0.1", false, "user", "12345")
 	if err != nil {
+		log.Println("Unable to get TOTP from clientRouter", serverToClient)
 		log.Fatal(err)
 	}
 
