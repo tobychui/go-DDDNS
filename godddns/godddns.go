@@ -36,6 +36,8 @@ type ServiceRouter struct {
 	DeviceIpAddr     net.IP
 	LastIpUpdateTime int64
 	LastSyncTime     int64
+
+	heartBeatTickerChannel chan bool
 }
 
 func NewServiceRouter(options RouterOptions) *ServiceRouter {

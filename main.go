@@ -67,7 +67,7 @@ func main() {
 	}
 
 	//Generate server -> client TOTP
-	serverToClient, err := serverRouter.StartConnection("client", "127.0.0.1", false, "user", "12345")
+	serverToClient, err := serverRouter.StartConnection("client", "127.0.0.1", false, "user", "123456")
 	if err != nil {
 		log.Println("Unable to get TOTP from clientRouter", serverToClient)
 		log.Fatal(err)
@@ -75,6 +75,9 @@ func main() {
 
 	log.Println(clientToServer, serverToClient)
 
-	//Do a blocking lop
+	clientRouter.StartHeartBeat(0)
+	serverRouter.StartHeartBeat(0)
+
+	//Do a blocking loop
 	select {}
 }
