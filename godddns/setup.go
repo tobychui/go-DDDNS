@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/xlzd/gotp"
 )
@@ -68,7 +69,7 @@ func (s *ServiceRouter) StartConnection(targetNodeUUID string, initIPAddr string
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalln(err)
+		return "", err
 	}
 
 	payload := TOTPPayload{}
@@ -78,8 +79,28 @@ func (s *ServiceRouter) StartConnection(targetNodeUUID string, initIPAddr string
 		return string(body), err
 	}
 
-	targetNode.ReflectedIP = payload.ReflectionIP
+	reflectedIP := payload.ReflectionIP
+	if strings.Contains(payload.ReflectionIP, ":") {
+		//from LAN or testing environment which contains the port after the reflected IP addr, trim that part
+		tmp := strings.Split(payload.ReflectionIP, ":")
+		reflectedIP = tmp[0]
+	} else {
+		reflectedIP = payload.ReflectionIP
+	}
+
+	if targetNode.ReflectedIP == "" {
+		//Initialization
+		targetNode.ReflectedIP = reflectedIP
+	}
+
+	if isPrivateIpString(targetNode.ReflectedIP) {
+		targetNode.ReflectedPrivateIP = reflectedIP
+	} else {
+		targetNode.ReflectedIP = reflectedIP
+	}
+
 	targetNode.totpSecret = payload.TOTPSecret
+	targetNode.requireHTTPS = useHTTPS
 	log.Println(payload)
 	return payload.TOTPSecret, nil
 }
@@ -108,7 +129,7 @@ func (s *ServiceRouter) HandleConnectionEstablishResponse(w http.ResponseWriter,
 	}
 
 	//Generate TOTP
-	totpSecret := gotp.RandomSecret(32)
+	totpSecret := gotp.RandomSecret(8)
 
 	//Write TOTP Secret to map
 	s.TOTPMap = append(s.TOTPMap, &TOTPRecord{

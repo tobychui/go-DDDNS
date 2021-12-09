@@ -7,15 +7,18 @@ import (
 )
 
 type Node struct {
-	UUID              string //The UUID of the target Node
-	IpAddr            string //The IP address of the Node
-	Port              int    //The port for connection
-	ConnectionRelpath string //The relative path for Establish connection
-	HeartbeatRelpath  string //The relative path for Heartbeat connection
-	ReflectedIP       string //The IP address reflected by the other node
-	lastOnline        int64  //Last time this node is connectable
-	lastSync          int64  //Last time this device tries to conenct this node
-	totpSecret        string //The TOTPSecret for sending message
+	UUID               string //The UUID of the target Node
+	IpAddr             string //The IP address of the Node
+	Port               int    //The port for connection
+	ConnectionRelpath  string //The relative path for Establish connection
+	HeartbeatRelpath   string //The relative path for Heartbeat connection
+	ReflectedIP        string //The IP address reflected by the other node
+	ReflectedPrivateIP string //The IP address reflected by local nodes, should be LAN address
+
+	lastOnline   int64  //Last time this node is connectable
+	lastSync     int64  //Last time this device tries to conenct this node
+	requireHTTPS bool   //The connection to the node must pass through HTTPS
+	totpSecret   string //The TOTPSecret for sending message
 }
 
 type TOTPRecord struct {
@@ -54,14 +57,14 @@ func NewServiceRouter(options RouterOptions) *ServiceRouter {
 func (s *ServiceRouter) NewNode(remoteUUID string, port int, connectionRelativePath string, heartBeatRelativePath string) *Node {
 	return &Node{
 		UUID:              remoteUUID,
-		IpAddr:            "",
+		ReflectedIP:       "",
 		Port:              port,
 		ConnectionRelpath: filepath.ToSlash(filepath.Clean(connectionRelativePath)),
-		HeartbeatRelpath:  filepath.ToSlash(filepath.Clean(connectionRelativePath)),
-		ReflectedIP:       "",
-		lastOnline:        0,
-		lastSync:          0,
-		totpSecret:        "",
+		HeartbeatRelpath:  filepath.ToSlash(filepath.Clean(heartBeatRelativePath)),
+
+		lastOnline: 0,
+		lastSync:   0,
+		totpSecret: "",
 	}
 }
 

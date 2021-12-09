@@ -75,8 +75,8 @@ func main() {
 
 	log.Println(clientToServer, serverToClient)
 
-	clientRouter.StartHeartBeat(0)
-	serverRouter.StartHeartBeat(0)
+	clientRouter.StartHeartBeat()
+	serverRouter.StartHeartBeat()
 
 	//Do a blocking loop
 	select {}
