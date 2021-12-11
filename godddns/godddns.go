@@ -15,20 +15,20 @@ type Node struct {
 	ReflectedIP        string //The IP address reflected by the other node
 	ReflectedPrivateIP string //The IP address reflected by local nodes, should be LAN address
 
-	lastOnline   int64  //Last time this node is connectable
-	lastSync     int64  //Last time this device tries to conenct this node
-	requireHTTPS bool   //The connection to the node must pass through HTTPS
-	totpSecret   string //The TOTPSecret for sending message
+	lastOnline     int64  //Last time this node is connectable
+	lastSync       int64  //Last time this device tries to conenct this node
+	RequireHTTPS   bool   //The connection to the node must pass through HTTPS
+	SendTotpSecret string //The TOTPSecret for sending message
 }
 
 type TOTPRecord struct {
-	RemoteUUID string //The remote node ID where this TOTP was sent to
-	TOTPSecret string //The TOTP secret assigned to this node
+	RemoteUUID     string //The remote node ID where this TOTP was sent to
+	RecvTOTPSecret string //The TOTP secret assigned to this node
 }
 
 type RouterOptions struct {
 	DeviceUUID   string                    //The UUID of this device
-	AuthFunction func(string, string) bool //Check if the authentication is correct based on username and password
+	AuthFunction func(string, string) bool `json:"-"` //Check if the authentication is correct based on username and password
 	SyncInterval int64                     //Sync interval in seconds
 }
 
@@ -62,23 +62,13 @@ func (s *ServiceRouter) NewNode(remoteUUID string, port int, connectionRelativeP
 		ConnectionRelpath: filepath.ToSlash(filepath.Clean(connectionRelativePath)),
 		HeartbeatRelpath:  filepath.ToSlash(filepath.Clean(heartBeatRelativePath)),
 
-		lastOnline: 0,
-		lastSync:   0,
-		totpSecret: "",
+		lastOnline:     0,
+		lastSync:       0,
+		SendTotpSecret: "",
 	}
 }
 
 //Add the node to this router
 func (s *ServiceRouter) AddNode(node *Node) {
 	s.NodeMap = append(s.NodeMap, node)
-}
-
-//Set the node's TOTPSecret by external database
-func (n *Node) SetNodeTOTPSecret(totpSecret string) {
-	n.totpSecret = totpSecret
-}
-
-//Extract the node's TOTPSecret
-func (n *Node) ExtractTOTPSecret() string {
-	return n.totpSecret
 }

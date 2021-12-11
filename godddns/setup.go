@@ -91,8 +91,8 @@ func (s *ServiceRouter) StartConnection(targetNodeUUID string, initIPAddr string
 		targetNode.ReflectedIP = reflectedIP
 	}
 
-	targetNode.totpSecret = payload.TOTPSecret
-	targetNode.requireHTTPS = useHTTPS
+	targetNode.SendTotpSecret = payload.TOTPSecret
+	targetNode.RequireHTTPS = useHTTPS
 	log.Println(payload)
 	return payload.TOTPSecret, nil
 }
@@ -125,8 +125,8 @@ func (s *ServiceRouter) HandleConnectionEstablishResponse(w http.ResponseWriter,
 
 	//Write TOTP Secret to map
 	s.TOTPMap = append(s.TOTPMap, &TOTPRecord{
-		RemoteUUID: cred.NodeUUID,
-		TOTPSecret: totpSecret,
+		RemoteUUID:     cred.NodeUUID,
+		RecvTOTPSecret: totpSecret,
 	})
 
 	//Construct response

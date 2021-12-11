@@ -82,7 +82,7 @@ func (s *ServiceRouter) HandleHeartBeatRequest(w http.ResponseWriter, r *http.Re
 	targetTotpSecret := ""
 	for _, thisTOTPRecord := range s.TOTPMap {
 		if thisTOTPRecord.RemoteUUID == payload.NodeUUID {
-			targetTotpSecret = thisTOTPRecord.TOTPSecret
+			targetTotpSecret = thisTOTPRecord.RecvTOTPSecret
 		}
 	}
 
@@ -100,6 +100,14 @@ func (s *ServiceRouter) HandleHeartBeatRequest(w http.ResponseWriter, r *http.Re
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("400 - Invalid TOTP"))
 		return
+	}
+
+	//Get the node object from the NodeMap and updates its IP address
+	for _, node := range s.NodeMap {
+		if node.UUID == payload.NodeUUID {
+			node.IpAddr = net.ParseIP(payload.IPADDR)
+			break
+		}
 	}
 
 	//Reply the IP address of the requesting node from this node's perspective
@@ -133,9 +141,7 @@ func (s *ServiceRouter) ExecuteHeartBeatCycle() {
 		s.LastIpUpdateTime = time.Now().Unix()
 	}
 	s.DeviceIpAddr = newIp
-
 	s.LastSyncTime = time.Now().Unix()
-	log.Println("Vote results: ", pubip, priip)
 	log.Println(s)
 }
 
@@ -239,7 +245,7 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 	reqEndpoint = filepath.ToSlash(filepath.Clean(reqEndpoint))
 
 	//Append protocol type
-	if node.requireHTTPS {
+	if node.RequireHTTPS {
 		reqEndpoint = "https://" + reqEndpoint
 	} else {
 		reqEndpoint = "http://" + reqEndpoint
@@ -248,14 +254,14 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 	log.Println(reqEndpoint)
 
 	//Generate a TOTP for this node
-	totp := gotp.NewDefaultTOTP(node.totpSecret)
+	totp := gotp.NewDefaultTOTP(node.SendTotpSecret)
 	token := totp.Now()
 
 	//POST this node's IP address to the target node
 	postBody, _ := json.Marshal(map[string]string{
 		"NodeUUID": s.Options.DeviceUUID,
 		"TOTP":     token,
-		"IPADDR":   string(s.DeviceIpAddr),
+		"IPADDR":   s.DeviceIpAddr.String(),
 	})
 	responseBody := bytes.NewBuffer(postBody)
 

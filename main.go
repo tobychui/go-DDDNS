@@ -1,8 +1,11 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"time"
 
 	godddns "github.com/tobychui/go-DDDNS/godddns"
 )
@@ -78,6 +81,18 @@ func main() {
 	clientRouter.StartHeartBeat()
 	serverRouter.StartHeartBeat()
 
+	go func() {
+		time.Sleep(11 * time.Second)
+		//Export client Router
+		js, _ := clientRouter.ExportRouterToJSON()
+		ioutil.WriteFile("clientRouter.json", []byte(js), 0777)
+
+		//Export server router
+		js, _ = serverRouter.ExportRouterToJSON()
+		ioutil.WriteFile("serverRouter.json", []byte(js), 0777)
+		log.Println("Shutting down")
+		os.Exit(0)
+	}()
 	//Do a blocking loop
 	select {}
 }

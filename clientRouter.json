@@ -1,0 +1,28 @@
+{
+ "NodeMap": [
+  {
+   "UUID": "server",
+   "IpAddr": "127.0.0.1",
+   "Port": 8081,
+   "ConnectionRelpath": "/connect",
+   "HeartbeatRelpath": "/heartbeat",
+   "ReflectedIP": "",
+   "ReflectedPrivateIP": "127.0.0.1",
+   "RequireHTTPS": false,
+   "SendTotpSecret": "TO5QXRXT"
+  }
+ ],
+ "TOTPMap": [
+  {
+   "RemoteUUID": "server",
+   "RecvTOTPSecret": "I6H4V5TX"
+  }
+ ],
+ "Options": {
+  "DeviceUUID": "client",
+  "SyncInterval": 10
+ },
+ "DeviceIpAddr": "127.0.0.1",
+ "LastIpUpdateTime": 1639218794,
+ "LastSyncTime": 1639218804
+}
