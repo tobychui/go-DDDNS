@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/xlzd/gotp"
 )
@@ -79,14 +78,7 @@ func (s *ServiceRouter) StartConnection(targetNodeUUID string, initIPAddr string
 		return string(body), err
 	}
 
-	reflectedIP := payload.ReflectionIP
-	if strings.Contains(payload.ReflectionIP, ":") {
-		//from LAN or testing environment which contains the port after the reflected IP addr, trim that part
-		tmp := strings.Split(payload.ReflectionIP, ":")
-		reflectedIP = tmp[0]
-	} else {
-		reflectedIP = payload.ReflectionIP
-	}
+	reflectedIP := trimIpPort(payload.ReflectionIP)
 
 	if targetNode.ReflectedIP == "" {
 		//Initialization

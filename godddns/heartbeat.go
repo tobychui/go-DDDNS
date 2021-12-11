@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -34,7 +35,7 @@ func (s *ServiceRouter) StartHeartBeat() {
 		beatingInterval = 10
 	}
 
-	//Check if there is a previous heart beat routing running. Kill it if true
+	//Check if there is a previous heart beat routine running. Kill it if true
 	if s.heartBeatTickerChannel != nil {
 		s.heartBeatTickerChannel <- true
 	}
@@ -94,8 +95,14 @@ func (s *ServiceRouter) HandleHeartBeatRequest(w http.ResponseWriter, r *http.Re
 	targetTotpResolver := gotp.NewDefaultTOTP(targetTotpSecret)
 	isValidTotp := targetTotpResolver.Verify(payload.TOTP, int(time.Now().Unix()))
 
+	if !isValidTotp {
+		//Response to invalid TOTP
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("400 - Invalid TOTP"))
+		return
+	}
+
 	//Reply the IP address of the requesting node from this node's perspective
-	log.Println(s.Options.DeviceUUID+" Heart Beat Received from "+r.RemoteAddr, payload, isValidTotp)
 	w.Write([]byte(r.RemoteAddr))
 }
 
@@ -104,12 +111,32 @@ func (s *ServiceRouter) HandleHeartBeatRequest(w http.ResponseWriter, r *http.Re
 	the current node's public / private IP address
 */
 func (s *ServiceRouter) ExecuteHeartBeatCycle() {
-	log.Println(s.Options.DeviceUUID, "Heartbeat executed")
+	//Execute heartbeat on all connected nodes
 	for _, node := range s.NodeMap {
 		s.heartBeatToNode(node)
 	}
 
-	s.VoteRouterIPAddr()
+	//Vote the correct ip address from what other nodes told us
+	pubip, priip := s.VoteRouterIPAddr()
+
+	//Use its public IP as this node IP, if public ip is not found (aka LAN cluster)
+	//use private IP address instead
+	var newIp net.IP
+	if pubip.String() != "0.0.0.0" {
+		newIp = pubip
+	} else {
+		newIp = priip
+	}
+
+	if newIp.String() != "" && newIp.String() != s.DeviceIpAddr.String() {
+		//IP has changed.
+		s.LastIpUpdateTime = time.Now().Unix()
+	}
+	s.DeviceIpAddr = newIp
+
+	s.LastSyncTime = time.Now().Unix()
+	log.Println("Vote results: ", pubip, priip)
+	log.Println(s)
 }
 
 //HeartBeatToNode execute a one-time heartbeat update to given node with matching UUID
@@ -123,9 +150,67 @@ func (s *ServiceRouter) HeartBeatToNode(nodeUUID string) error {
 }
 
 //VoteRouterIPAddr will check all the IP addresses return from the network of nodes
-//and decide what is the current router (public) ip address
-func (s *ServiceRouter) VoteRouterIPAddr() {
+//and decide what is the current router public and private IP address
+func (s *ServiceRouter) VoteRouterIPAddr() (net.IP, net.IP) {
+	privateIps := map[string]int{}
+	publicIps := map[string]int{}
+	//Create the key value pairs
+	for _, node := range s.NodeMap {
+		if node.ReflectedIP != "" {
+			publicIps[node.ReflectedIP] = 0
+		}
 
+		if node.ReflectedPrivateIP != "" {
+			privateIps[node.ReflectedPrivateIP] = 0
+		}
+	}
+
+	//Count the number of pairs in the node map
+	publicIpMaxCount := 0
+	privateIpMaxCount := 0
+	for _, node := range s.NodeMap {
+		if node.ReflectedIP != "" {
+			publicIps[node.ReflectedIP]++
+			if publicIps[node.ReflectedIP] > publicIpMaxCount {
+				publicIpMaxCount = publicIps[node.ReflectedIP]
+			}
+		}
+
+		if node.ReflectedPrivateIP != "" {
+			privateIps[node.ReflectedPrivateIP]++
+			if privateIps[node.ReflectedPrivateIP] > privateIpMaxCount {
+				privateIpMaxCount = privateIps[node.ReflectedPrivateIP]
+			}
+		}
+	}
+
+	//Extract the vote results for public and private ips
+	votePublicIpResult := "0.0.0.0"
+	votePrivateIpResult := "0.0.0.0"
+	for ip, count := range publicIps {
+		if count == publicIpMaxCount {
+			votePublicIpResult = ip
+			break
+		}
+	}
+
+	for pip, count := range privateIps {
+		if count == privateIpMaxCount {
+			votePrivateIpResult = pip
+			break
+		}
+	}
+
+	//Prase the IP to return correct datatypes
+	rpub := net.ParseIP(votePublicIpResult)
+	if rpub == nil {
+		rpub = net.ParseIP("0.0.0.0")
+	}
+	rpri := net.ParseIP(votePrivateIpResult)
+	if rpri == nil {
+		rpri = net.ParseIP("0.0.0.0")
+	}
+	return rpub, rpri
 }
 
 /*
@@ -174,12 +259,18 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 	})
 	responseBody := bytes.NewBuffer(postBody)
 
+	//Record last sync time
+	node.lastSync = time.Now().Unix()
+
 	//Create a POST request to the target node heartbeat endpoint
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
 	resp, err := client.Post(reqEndpoint, "application/json", responseBody)
 	if err != nil {
+		//Post failed, clear all the IP fields
+		node.ReflectedIP = ""
+		node.ReflectedPrivateIP = ""
 		return err
 	}
 
@@ -189,8 +280,20 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 	}
 
 	//The returned body should contain this node's ip address as seen by the other node
-	log.Println(resp, string(body), err)
+	log.Println("Heartbeat reflected IP: ", string(body), err)
+	reflectedIp := string(body) //This node IP as seens by the requested node
+	reflectedIp = trimIpPort(reflectedIp)
+
 	//Update node information
+	node.lastOnline = node.lastSync
+
+	if isPrivateIpString(reflectedIp) {
+		node.ReflectedPrivateIP = reflectedIp
+		node.ReflectedIP = ""
+	} else {
+		node.ReflectedPrivateIP = ""
+		node.ReflectedIP = reflectedIp
+	}
 
 	return nil
 }

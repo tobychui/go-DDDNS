@@ -8,7 +8,7 @@ import (
 
 type Node struct {
 	UUID               string //The UUID of the target Node
-	IpAddr             string //The IP address of the Node
+	IpAddr             net.IP //The IP address of the Node
 	Port               int    //The port for connection
 	ConnectionRelpath  string //The relative path for Establish connection
 	HeartbeatRelpath   string //The relative path for Heartbeat connection
