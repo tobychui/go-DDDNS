@@ -1,6 +1,7 @@
 package godddns
 
 import (
+	"fmt"
 	"net"
 	"strings"
 )
@@ -59,5 +60,25 @@ func trimIpPort(ipWithPort string) string {
 		return result
 	} else {
 		return ipWithPort
+	}
+}
+
+/*
+	Check if the given TOTP map exists in the router (aka already conenncted)
+*/
+func (s *ServiceRouter) TotpMapExists(nodeUUID string) int {
+	for i := 0; i < len(s.TOTPMap); i++ {
+		totpMap := s.TOTPMap[i]
+		if totpMap.RemoteUUID == nodeUUID {
+			return i
+		}
+	}
+	return -1
+}
+
+func (s *ServiceRouter) prettyPrintTotpMap() {
+	fmt.Println("Printing TOTP MAP for node: " + s.Options.DeviceUUID)
+	for _, totpRecord := range s.TOTPMap {
+		fmt.Println(totpRecord.RemoteUUID + " => " + totpRecord.RecvTOTPSecret)
 	}
 }

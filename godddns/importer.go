@@ -2,7 +2,7 @@ package godddns
 
 import (
 	"encoding/json"
-	"log"
+	"io/ioutil"
 )
 
 /*
@@ -12,20 +12,34 @@ import (
 
 */
 
-/*
+//NewRouterFromJSON create a new router object from JSON string
+//Notes that the newly created service router is still has its auth function missing
+//the authentication function has to be injected after the router is returned
 func NewRouterFromJSON(jsonConfig string) (*ServiceRouter, error) {
-
-	return nil
+	newRouter := ServiceRouter{}
+	err := json.Unmarshal([]byte(jsonConfig), &newRouter)
+	if err != nil {
+		return nil, err
+	}
+	return &newRouter, nil
 }
 
+//NewRouterFromJSONFile create a new router from file contianing json string
 func NewRouterFromJSONFile(filename string) (*ServiceRouter, error) {
-
-	return nil
+	fileContent, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	return NewRouterFromJSON(string(fileContent))
 }
-*/
 
+//Inject an auth function into an imported service router
+func (s *ServiceRouter) InjectAuthFunction(authFunction func(string, string) bool) {
+	s.Options.AuthFunction = authFunction
+}
+
+//Export a service router to JSON string
 func (s *ServiceRouter) ExportRouterToJSON() (string, error) {
 	js, err := json.MarshalIndent(s, "", " ")
-	log.Println(string(js), err)
 	return string(js), err
 }

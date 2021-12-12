@@ -1,6 +1,7 @@
 package godddns
 
 import (
+	"errors"
 	"net"
 	"path/filepath"
 	"time"
@@ -46,6 +47,7 @@ type ServiceRouter struct {
 func NewServiceRouter(options RouterOptions) *ServiceRouter {
 	return &ServiceRouter{
 		NodeMap:          []*Node{},
+		TOTPMap:          []*TOTPRecord{},
 		Options:          &options,
 		DeviceIpAddr:     nil,
 		LastIpUpdateTime: time.Now().Unix(),
@@ -69,6 +71,20 @@ func (s *ServiceRouter) NewNode(remoteUUID string, port int, connectionRelativeP
 }
 
 //Add the node to this router
-func (s *ServiceRouter) AddNode(node *Node) {
+func (s *ServiceRouter) AddNode(node *Node) error {
+	if s.NodeRegistered(node.UUID) {
+		return errors.New("node already registered")
+	}
 	s.NodeMap = append(s.NodeMap, node)
+	return nil
+}
+
+//Add the node to this router
+func (s *ServiceRouter) NodeRegistered(nodeUUID string) bool {
+	for _, node := range s.NodeMap {
+		if node.UUID == nodeUUID {
+			return true
+		}
+	}
+	return false
 }

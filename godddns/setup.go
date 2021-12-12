@@ -51,6 +51,11 @@ func (s *ServiceRouter) StartConnection(targetNodeUUID string, initIPAddr string
 		return "", errors.New("node not registered")
 	}
 
+	//Check if the service router was correctly set-up
+	if s.Options.AuthFunction == nil {
+		return "", errors.New("this service router does not contain a valid auth function")
+	}
+
 	postBody, _ := json.Marshal(map[string]string{
 		"NodeUUID": s.Options.DeviceUUID,
 		"Username": username,
@@ -118,6 +123,14 @@ func (s *ServiceRouter) HandleConnectionEstablishResponse(w http.ResponseWriter,
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("Incorrect username or password"))
 		return
+	}
+
+	//Check if the node TOTP already exists
+	nodeTotpRecordPosition := s.TotpMapExists(cred.NodeUUID)
+	if nodeTotpRecordPosition >= 0 {
+		//Node already registered. Remove the previous TOTP record
+		s.TOTPMap[nodeTotpRecordPosition] = s.TOTPMap[len(s.TOTPMap)-1]
+		s.TOTPMap = s.TOTPMap[:len(s.TOTPMap)-1]
 	}
 
 	//Generate TOTP

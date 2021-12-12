@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -9,6 +10,23 @@ import (
 
 	godddns "github.com/tobychui/go-DDDNS/godddns"
 )
+
+/*
+	Go-DDDNS Example (I might want to change this name later)
+
+	For first time compile & start up, this demo will do the followings:
+
+	1. Create two service router for go-DDDNS
+	2. Cross register both router to each other
+	3. Lets them heartbeat and keep in sync with the other's IP address
+	4. Write the configuration to json file
+
+	For 2nd time startup, this demo will do the followings:
+
+	1. Load service router from json config file
+	2. Inject auth function into the loaded service router
+	3. Resume heartbeat connections
+*/
 
 //Demo function for validate user account
 func ValidateCred(username string, password string) bool {
@@ -24,12 +42,29 @@ func main() {
 	serverHandler := http.NewServeMux()
 	clientHandler := http.NewServeMux()
 
-	//Create the testing server router
-	serverRouter := godddns.NewServiceRouter(godddns.RouterOptions{
-		DeviceUUID:   "server",
-		AuthFunction: ValidateCred,
-		SyncInterval: 10,
-	})
+	var serverRouter *godddns.ServiceRouter
+	var clientRouter *godddns.ServiceRouter
+	if fileExists("serverRouter.json") {
+		//Create service router from previous record
+		r, err := godddns.NewRouterFromJSONFile("serverRouter.json")
+		if err != nil {
+			log.Fatal(err)
+		}
+		r.InjectAuthFunction(ValidateCred)
+
+		serverRouter = r
+	} else {
+		//Create the testing server router
+		serverRouter = godddns.NewServiceRouter(godddns.RouterOptions{
+			DeviceUUID:   "server",
+			AuthFunction: ValidateCred,
+			SyncInterval: 10,
+		})
+
+		//Add client node into the server list
+		s2cNode := serverRouter.NewNode("client", 8082, "/connect", "/heartbeat")
+		serverRouter.AddNode(s2cNode)
+	}
 
 	//Start server router connection handler
 	go func() {
@@ -39,28 +74,36 @@ func main() {
 		http.ListenAndServe(":8081", serverHandler)
 	}()
 
-	//Create the client router
-	clientRouter := godddns.NewServiceRouter(godddns.RouterOptions{
-		DeviceUUID:   "client",
-		AuthFunction: ValidateCred,
-		SyncInterval: 10,
-	})
+	if fileExists("clientRouter.json") {
+		//Create service router from previous record
+		r, err := godddns.NewRouterFromJSONFile("clientRouter.json")
+		if err != nil {
+			log.Fatal(err)
+		}
+		r.InjectAuthFunction(ValidateCred)
 
-	//Start server router connection handler
+		clientRouter = r
+	} else {
+		//Create the client router
+		clientRouter = godddns.NewServiceRouter(godddns.RouterOptions{
+			DeviceUUID:   "client",
+			AuthFunction: ValidateCred,
+			SyncInterval: 10,
+		})
+
+		//Add server node into the client list
+		c2sNode := clientRouter.NewNode("server", 8081, "/connect", "/heartbeat")
+		clientRouter.AddNode(c2sNode)
+
+	}
+
+	//Start client router connection handler
 	go func() {
 		clientHandler.HandleFunc("/connect", clientRouter.HandleConnectionEstablishResponse)
 		clientHandler.HandleFunc("/heartbeat", clientRouter.HandleHeartBeatRequest)
 		log.Println("Client Router Started")
 		http.ListenAndServe(":8082", clientHandler)
 	}()
-
-	//Add server node into the client list
-	c2sNode := clientRouter.NewNode("server", 8081, "/connect", "/heartbeat")
-	clientRouter.AddNode(c2sNode)
-
-	//Add client node into the server list
-	s2cNode := serverRouter.NewNode("client", 8082, "/connect", "/heartbeat")
-	serverRouter.AddNode(s2cNode)
 
 	//Generate client -> server TOTP
 	clientToServer, err := clientRouter.StartConnection("server", "127.0.0.1", false, "user", "123456")
@@ -69,6 +112,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	time.Sleep(1 * time.Second)
+
 	//Generate server -> client TOTP
 	serverToClient, err := serverRouter.StartConnection("client", "127.0.0.1", false, "user", "123456")
 	if err != nil {
@@ -76,7 +121,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Println(clientToServer, serverToClient)
+	log.Println("TOTP Exchange done:", clientToServer, serverToClient)
 
 	clientRouter.StartHeartBeat()
 	serverRouter.StartHeartBeat()
@@ -95,4 +140,12 @@ func main() {
 	}()
 	//Do a blocking loop
 	select {}
+}
+
+// Utilities
+func fileExists(filename string) bool {
+	if _, err := os.Stat(filename); errors.Is(err, os.ErrNotExist) {
+		return false
+	}
+	return true
 }
