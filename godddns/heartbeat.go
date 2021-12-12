@@ -103,12 +103,12 @@ func (s *ServiceRouter) HandleHeartBeatRequest(w http.ResponseWriter, r *http.Re
 	}
 
 	//Get the node object from the NodeMap and updates its IP address
-	for _, node := range s.NodeMap {
-		if node.UUID == payload.NodeUUID {
-			node.IpAddr = net.ParseIP(payload.IPADDR)
-			break
-		}
+	targetNodeRegistry := s.getNodeByUUID(payload.NodeUUID)
+	if targetNodeRegistry == nil {
+		http.Error(w, "node UUID not registered", http.StatusUnauthorized)
+		return
 	}
+	targetNodeRegistry.IpAddr = net.ParseIP(trimIpPort(r.RemoteAddr))
 
 	//Reply the IP address of the requesting node from this node's perspective
 	w.Write([]byte(r.RemoteAddr))
@@ -140,9 +140,8 @@ func (s *ServiceRouter) ExecuteHeartBeatCycle() {
 		//IP has changed.
 		s.LastIpUpdateTime = time.Now().Unix()
 	}
-	s.DeviceIpAddr = newIp
 	s.LastSyncTime = time.Now().Unix()
-	log.Println(s)
+	s.DeviceIpAddr = newIp
 }
 
 //HeartBeatToNode execute a one-time heartbeat update to given node with matching UUID
@@ -220,28 +219,12 @@ func (s *ServiceRouter) VoteRouterIPAddr() (net.IP, net.IP) {
 }
 
 /*
-	Internal Functions
-
-*/
-
-//getNodebyUUID return the node that with the given uuid, return nil if not found
-func (s *ServiceRouter) getNodeByUUID(uuid string) *Node {
-	for _, node := range s.NodeMap {
-		if node.UUID == uuid {
-			return node
-		}
-	}
-
-	return nil
-}
-
-/*
 	heartBeatToNode create an heartbeat signal to the target node and updates its address based on the
 	DDDNS implementation. Updates will be written directly to the node object pointed by the poitner
 */
 func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 	//Assemble the target node heartbeat endpoint
-	reqEndpoint := node.ReflectedIP + ":" + strconv.Itoa(node.Port) + "/" + node.HeartbeatRelpath
+	reqEndpoint := node.IpAddr.String() + ":" + strconv.Itoa(node.Port) + "/" + node.HeartbeatRelpath
 	reqEndpoint = filepath.ToSlash(filepath.Clean(reqEndpoint))
 
 	//Append protocol type
@@ -251,7 +234,9 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 		reqEndpoint = "http://" + reqEndpoint
 	}
 
-	log.Println(reqEndpoint)
+	if s.Options.Verbal {
+		log.Println("Heartbeat request sending to: ", reqEndpoint, node.IpAddr.String())
+	}
 
 	//Generate a TOTP for this node
 	totp := gotp.NewDefaultTOTP(node.SendTotpSecret)
@@ -286,7 +271,10 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 	}
 
 	//The returned body should contain this node's ip address as seen by the other node
-	log.Println("Heartbeat reflected IP: ", string(body), err)
+	if s.Options.Verbal {
+		log.Println("Heartbeat reflected IP: ", string(body), err)
+	}
+
 	reflectedIp := string(body) //This node IP as seens by the requested node
 	reflectedIp = trimIpPort(reflectedIp)
 

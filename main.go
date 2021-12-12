@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"io/ioutil"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -126,17 +126,26 @@ func main() {
 	clientRouter.StartHeartBeat()
 	serverRouter.StartHeartBeat()
 
+	//Uncomment the following code for testing the export / import API
+	/*
+		go func() {
+			time.Sleep(11 * time.Second)
+			//Export client Router
+			js, _ := clientRouter.ExportRouterToJSON()
+			ioutil.WriteFile("clientRouter.json", []byte(js), 0777)
+
+			//Export server router
+			js, _ = serverRouter.ExportRouterToJSON()
+			ioutil.WriteFile("serverRouter.json", []byte(js), 0777)
+			log.Println("Shutting down")
+			os.Exit(0)
+		}()
+	*/
+
 	go func() {
 		time.Sleep(11 * time.Second)
-		//Export client Router
-		js, _ := clientRouter.ExportRouterToJSON()
-		ioutil.WriteFile("clientRouter.json", []byte(js), 0777)
-
-		//Export server router
-		js, _ = serverRouter.ExportRouterToJSON()
-		ioutil.WriteFile("serverRouter.json", []byte(js), 0777)
-		log.Println("Shutting down")
-		os.Exit(0)
+		fmt.Println("Client IP Address is: ", clientRouter.DeviceIpAddr.String())
+		fmt.Println("Server IP Address is: ", serverRouter.DeviceIpAddr.String())
 	}()
 	//Do a blocking loop
 	select {}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 
@@ -38,15 +39,7 @@ type TOTPPayload struct {
 */
 func (s *ServiceRouter) StartConnection(targetNodeUUID string, initIPAddr string, useHTTPS bool, username string, password string) (string, error) {
 	//Look for the target node
-	var targetNode *Node = nil
-	for _, node := range s.NodeMap {
-		if node.UUID == targetNodeUUID {
-			//This is the target node
-			thisNode := node
-			targetNode = thisNode
-		}
-	}
-
+	targetNode := s.getNodeByUUID(targetNodeUUID)
 	if targetNode == nil {
 		return "", errors.New("node not registered")
 	}
@@ -55,6 +48,9 @@ func (s *ServiceRouter) StartConnection(targetNodeUUID string, initIPAddr string
 	if s.Options.AuthFunction == nil {
 		return "", errors.New("this service router does not contain a valid auth function")
 	}
+
+	//Use this ip address as its initial IP address
+	targetNode.IpAddr = net.ParseIP(initIPAddr)
 
 	postBody, _ := json.Marshal(map[string]string{
 		"NodeUUID": s.Options.DeviceUUID,
@@ -98,7 +94,10 @@ func (s *ServiceRouter) StartConnection(targetNodeUUID string, initIPAddr string
 
 	targetNode.SendTotpSecret = payload.TOTPSecret
 	targetNode.RequireHTTPS = useHTTPS
-	log.Println(payload)
+	if s.Options.Verbal {
+		log.Println(s.Options.DeviceUUID, " received payload for handshake: ", payload)
+	}
+
 	return payload.TOTPSecret, nil
 }
 
@@ -126,7 +125,7 @@ func (s *ServiceRouter) HandleConnectionEstablishResponse(w http.ResponseWriter,
 	}
 
 	//Check if the node TOTP already exists
-	nodeTotpRecordPosition := s.TotpMapExists(cred.NodeUUID)
+	nodeTotpRecordPosition := s.totpMapExists(cred.NodeUUID)
 	if nodeTotpRecordPosition >= 0 {
 		//Node already registered. Remove the previous TOTP record
 		s.TOTPMap[nodeTotpRecordPosition] = s.TOTPMap[len(s.TOTPMap)-1]

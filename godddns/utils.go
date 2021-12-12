@@ -66,7 +66,7 @@ func trimIpPort(ipWithPort string) string {
 /*
 	Check if the given TOTP map exists in the router (aka already conenncted)
 */
-func (s *ServiceRouter) TotpMapExists(nodeUUID string) int {
+func (s *ServiceRouter) totpMapExists(nodeUUID string) int {
 	for i := 0; i < len(s.TOTPMap); i++ {
 		totpMap := s.TOTPMap[i]
 		if totpMap.RemoteUUID == nodeUUID {
@@ -81,4 +81,15 @@ func (s *ServiceRouter) prettyPrintTotpMap() {
 	for _, totpRecord := range s.TOTPMap {
 		fmt.Println(totpRecord.RemoteUUID + " => " + totpRecord.RecvTOTPSecret)
 	}
+}
+
+//getNodebyUUID return the node that with the given uuid, return nil if not found
+func (s *ServiceRouter) getNodeByUUID(uuid string) *Node {
+	for _, node := range s.NodeMap {
+		if node.UUID == uuid {
+			return node
+		}
+	}
+
+	return nil
 }

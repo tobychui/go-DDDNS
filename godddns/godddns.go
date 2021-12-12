@@ -31,6 +31,7 @@ type RouterOptions struct {
 	DeviceUUID   string                    //The UUID of this device
 	AuthFunction func(string, string) bool `json:"-"` //Check if the authentication is correct based on username and password
 	SyncInterval int64                     //Sync interval in seconds
+	Verbal       bool                      //Enable verbal output
 }
 
 type ServiceRouter struct {
@@ -87,4 +88,18 @@ func (s *ServiceRouter) NodeRegistered(nodeUUID string) bool {
 		}
 	}
 	return false
+}
+
+func (s *ServiceRouter) NodeConnected(nodeUUID string) bool {
+	targetNode := s.getNodeByUUID(nodeUUID)
+	if targetNode == nil {
+		return false
+	}
+
+	return s.totpMapExists(targetNode.UUID) >= 0
+}
+
+func (s *ServiceRouter) GetNodeIP(nodeUUID string) net.IP {
+	targetNode := s.getNodeByUUID(nodeUUID)
+	return targetNode.IpAddr
 }
