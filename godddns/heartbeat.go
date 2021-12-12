@@ -272,7 +272,7 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 
 	//The returned body should contain this node's ip address as seen by the other node
 	if s.Options.Verbal {
-		log.Println("Heartbeat reflected IP: ", string(body), err)
+		log.Println("Heartbeat reflected IP: ", string(body), " Error: ", err)
 	}
 
 	reflectedIp := string(body) //This node IP as seens by the requested node

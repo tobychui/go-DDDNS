@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -62,7 +63,13 @@ func main() {
 		})
 
 		//Add client node into the server list
-		s2cNode := serverRouter.NewNode("client", 8082, "/connect", "/heartbeat")
+		s2cNode := serverRouter.NewNode(godddns.NodeOptions{
+			NodeID:        "client",
+			Port:          8082,
+			ConnectionRel: "/connect",
+			HeartBeatRel:  "/heartbeat",
+			RequireHTTPS:  false,
+		})
 		serverRouter.AddNode(s2cNode)
 	}
 
@@ -92,7 +99,14 @@ func main() {
 		})
 
 		//Add server node into the client list
-		c2sNode := clientRouter.NewNode("server", 8081, "/connect", "/heartbeat")
+		c2sNode := clientRouter.NewNode(godddns.NodeOptions{
+			NodeID:        "server",
+			Port:          8081,
+			ConnectionRel: "/connect",
+			HeartBeatRel:  "/heartbeat",
+			RequireHTTPS:  false,
+		})
+
 		clientRouter.AddNode(c2sNode)
 
 	}
@@ -106,47 +120,64 @@ func main() {
 	}()
 
 	//Generate client -> server TOTP
-	clientToServer, err := clientRouter.StartConnection("server", "127.0.0.1", false, "user", "123456")
-	if err != nil {
-		log.Println("Unable to get TOTP from serverRouter", clientToServer)
-		log.Fatal(err)
+	c2sNode, _ := clientRouter.GetNodeByUUID("server")
+	if c2sNode != nil {
+		clientToServer, err := c2sNode.StartConnection("127.0.0.1", "user", "123456")
+		if err != nil {
+			log.Println("Unable to get TOTP from serverRouter", clientToServer)
+			log.Fatal(err)
+		}
+		log.Println("Client -> Server TOTP exchange done:", clientToServer)
 	}
 
 	time.Sleep(1 * time.Second)
 
 	//Generate server -> client TOTP
-	serverToClient, err := serverRouter.StartConnection("client", "127.0.0.1", false, "user", "123456")
-	if err != nil {
-		log.Println("Unable to get TOTP from clientRouter", serverToClient)
-		log.Fatal(err)
+	s2cNode, _ := serverRouter.GetNodeByUUID("client")
+	if s2cNode != nil {
+		serverToClient, err := s2cNode.StartConnection("127.0.0.1", "user", "123456")
+		if err != nil {
+			log.Println("Unable to get TOTP from clientRouter", serverToClient)
+			log.Fatal(err)
+		}
+		log.Println("Server -> Client TOTP exchange done:", serverToClient)
 	}
 
-	log.Println("TOTP Exchange done:", clientToServer, serverToClient)
+	//Optional: Enable verbal output on both router
+	clientRouter.Options.Verbal = true
+	serverRouter.Options.Verbal = true
 
 	clientRouter.StartHeartBeat()
 	serverRouter.StartHeartBeat()
 
-	//Uncomment the following code for testing the export / import API
-	/*
-		go func() {
-			time.Sleep(11 * time.Second)
-			//Export client Router
-			js, _ := clientRouter.ExportRouterToJSON()
-			ioutil.WriteFile("clientRouter.json", []byte(js), 0777)
-
-			//Export server router
-			js, _ = serverRouter.ExportRouterToJSON()
-			ioutil.WriteFile("serverRouter.json", []byte(js), 0777)
-			log.Println("Shutting down")
-			os.Exit(0)
-		}()
-	*/
-
+	//Show the client and server IP address after 2 heart beat cycles
 	go func() {
 		time.Sleep(11 * time.Second)
 		fmt.Println("Client IP Address is: ", clientRouter.DeviceIpAddr.String())
 		fmt.Println("Server IP Address is: ", serverRouter.DeviceIpAddr.String())
+
+		//Remove both nodes before shutdown
+		//clientRouter.RemoveNode("server")
+		//serverRouter.RemoveNode("client")
 	}()
+
+	//Export the configuration to file
+	go func() {
+		time.Sleep(15 * time.Second)
+		//Export client Router
+		js, _ := clientRouter.ExportRouterToJSON()
+		ioutil.WriteFile("clientRouter.json", []byte(js), 0777)
+
+		//Export server router
+		js, _ = serverRouter.ExportRouterToJSON()
+		ioutil.WriteFile("serverRouter.json", []byte(js), 0777)
+
+		//Stopping heartbeat
+		clientRouter.StopHeartBeat()
+		serverRouter.StopHeartBeat()
+		log.Println("Demo ended. Press Ctrl + C to exit.")
+	}()
+
 	//Do a blocking loop
 	select {}
 }

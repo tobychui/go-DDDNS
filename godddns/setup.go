@@ -37,32 +37,26 @@ type TOTPPayload struct {
 	Establish connection to a new node using a given UUID
 	A node must be registered with AddNode first before StartConenction can be called
 */
-func (s *ServiceRouter) StartConnection(targetNodeUUID string, initIPAddr string, useHTTPS bool, username string, password string) (string, error) {
-	//Look for the target node
-	targetNode := s.getNodeByUUID(targetNodeUUID)
-	if targetNode == nil {
-		return "", errors.New("node not registered")
-	}
-
+func (n *Node) StartConnection(initIPAddr string, username string, password string) (string, error) {
 	//Check if the service router was correctly set-up
-	if s.Options.AuthFunction == nil {
+	if n.parent.Options.AuthFunction == nil {
 		return "", errors.New("this service router does not contain a valid auth function")
 	}
 
 	//Use this ip address as its initial IP address
-	targetNode.IpAddr = net.ParseIP(initIPAddr)
+	n.IpAddr = net.ParseIP(initIPAddr)
 
 	postBody, _ := json.Marshal(map[string]string{
-		"NodeUUID": s.Options.DeviceUUID,
+		"NodeUUID": n.parent.Options.DeviceUUID,
 		"Username": username,
 		"Password": password,
 	})
 	responseBody := bytes.NewBuffer(postBody)
 	protocol := "http://"
-	if useHTTPS {
+	if n.RequireHTTPS {
 		protocol = "https://"
 	}
-	resp, err := http.Post(protocol+initIPAddr+":"+strconv.Itoa(targetNode.Port)+targetNode.ConnectionRelpath, "application/json", responseBody)
+	resp, err := http.Post(protocol+initIPAddr+":"+strconv.Itoa(n.Port)+n.ConnectionRelpath, "application/json", responseBody)
 	if err != nil {
 		return "", err
 	}
@@ -81,21 +75,20 @@ func (s *ServiceRouter) StartConnection(targetNodeUUID string, initIPAddr string
 
 	reflectedIP := trimIpPort(payload.ReflectionIP)
 
-	if targetNode.ReflectedIP == "" {
+	if n.ReflectedIP == "" {
 		//Initialization
-		targetNode.ReflectedIP = reflectedIP
+		n.ReflectedIP = reflectedIP
 	}
 
-	if isPrivateIpString(targetNode.ReflectedIP) {
-		targetNode.ReflectedPrivateIP = reflectedIP
+	if isPrivateIpString(n.ReflectedIP) {
+		n.ReflectedPrivateIP = reflectedIP
 	} else {
-		targetNode.ReflectedIP = reflectedIP
+		n.ReflectedIP = reflectedIP
 	}
 
-	targetNode.SendTotpSecret = payload.TOTPSecret
-	targetNode.RequireHTTPS = useHTTPS
-	if s.Options.Verbal {
-		log.Println(s.Options.DeviceUUID, " received payload for handshake: ", payload)
+	n.SendTotpSecret = payload.TOTPSecret
+	if n.parent.Options.Verbal {
+		log.Println(n.parent.Options.DeviceUUID, " received payload for handshake: ", payload)
 	}
 
 	return payload.TOTPSecret, nil

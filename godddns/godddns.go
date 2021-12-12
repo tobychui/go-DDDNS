@@ -15,11 +15,21 @@ type Node struct {
 	HeartbeatRelpath   string //The relative path for Heartbeat connection
 	ReflectedIP        string //The IP address reflected by the other node
 	ReflectedPrivateIP string //The IP address reflected by local nodes, should be LAN address
+	RequireHTTPS       bool   //The connection to the node must pass through HTTPS
+	SendTotpSecret     string //The TOTPSecret for sending message
 
-	lastOnline     int64  //Last time this node is connectable
-	lastSync       int64  //Last time this device tries to conenct this node
-	RequireHTTPS   bool   //The connection to the node must pass through HTTPS
-	SendTotpSecret string //The TOTPSecret for sending message
+	lastOnline int64          //Last time this node is connectable
+	lastSync   int64          //Last time this device tries to conenct this node
+	parent     *ServiceRouter `json:"-"` //The service router that this node belongs to
+}
+
+//New Node Options
+type NodeOptions struct {
+	NodeID        string //The UUID of this node
+	Port          int    //The connection port for this node
+	ConnectionRel string //Relative path for the node connection endpoint
+	HeartBeatRel  string //Relative path for the heartbeat endpoint
+	RequireHTTPS  bool   //Use HTTPS for this node
 }
 
 type TOTPRecord struct {
@@ -57,17 +67,19 @@ func NewServiceRouter(options RouterOptions) *ServiceRouter {
 }
 
 //Create a New Node based on remoteUUID, conencting endpoint and heart beat endpoint
-func (s *ServiceRouter) NewNode(remoteUUID string, port int, connectionRelativePath string, heartBeatRelativePath string) *Node {
+func (s *ServiceRouter) NewNode(options NodeOptions) *Node {
 	return &Node{
-		UUID:              remoteUUID,
+		UUID:              options.NodeID,
 		ReflectedIP:       "",
-		Port:              port,
-		ConnectionRelpath: filepath.ToSlash(filepath.Clean(connectionRelativePath)),
-		HeartbeatRelpath:  filepath.ToSlash(filepath.Clean(heartBeatRelativePath)),
+		Port:              options.Port,
+		ConnectionRelpath: filepath.ToSlash(filepath.Clean(options.ConnectionRel)),
+		HeartbeatRelpath:  filepath.ToSlash(filepath.Clean(options.HeartBeatRel)),
+		RequireHTTPS:      options.RequireHTTPS,
+		SendTotpSecret:    "",
 
-		lastOnline:     0,
-		lastSync:       0,
-		SendTotpSecret: "",
+		lastOnline: 0,
+		lastSync:   0,
+		parent:     s,
 	}
 }
 
@@ -77,6 +89,31 @@ func (s *ServiceRouter) AddNode(node *Node) error {
 		return errors.New("node already registered")
 	}
 	s.NodeMap = append(s.NodeMap, node)
+	return nil
+}
+
+//Remove the node with given UUID
+func (s *ServiceRouter) RemoveNode(nodeUUID string) error {
+	if !s.NodeRegistered(nodeUUID) {
+		return errors.New("node with given UUID not exists")
+	}
+	newNodeMap := []*Node{}
+	newTotpMap := []*TOTPRecord{}
+
+	for _, thisNode := range s.NodeMap {
+		if thisNode.UUID != nodeUUID {
+			newNodeMap = append(newNodeMap, thisNode)
+		}
+	}
+
+	for _, thisNode := range s.TOTPMap {
+		if thisNode.RemoteUUID != nodeUUID {
+			newTotpMap = append(newTotpMap, thisNode)
+		}
+	}
+
+	s.NodeMap = newNodeMap
+	s.TOTPMap = newTotpMap
 	return nil
 }
 
@@ -97,6 +134,15 @@ func (s *ServiceRouter) NodeConnected(nodeUUID string) bool {
 	}
 
 	return s.totpMapExists(targetNode.UUID) >= 0
+}
+
+func (s *ServiceRouter) GetNodeByUUID(nodeUUID string) (*Node, error) {
+	targetNode := s.getNodeByUUID(nodeUUID)
+	if targetNode == nil {
+		return nil, errors.New("node not found")
+	} else {
+		return targetNode, nil
+	}
 }
 
 func (s *ServiceRouter) GetNodeIP(nodeUUID string) net.IP {

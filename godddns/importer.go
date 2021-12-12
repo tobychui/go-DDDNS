@@ -3,6 +3,7 @@ package godddns
 import (
 	"encoding/json"
 	"io/ioutil"
+	"log"
 )
 
 /*
@@ -20,6 +21,15 @@ func NewRouterFromJSON(jsonConfig string) (*ServiceRouter, error) {
 	err := json.Unmarshal([]byte(jsonConfig), &newRouter)
 	if err != nil {
 		return nil, err
+	}
+
+	//Fill the parent object for all nodes
+	for _, registerNodes := range newRouter.NodeMap {
+		registerNodes.parent = &newRouter
+	}
+
+	if len(newRouter.NodeMap) == 0 && newRouter.Options.Verbal {
+		log.Println(newRouter.Options.DeviceUUID + " config has no 0 registered node!!!")
 	}
 	return &newRouter, nil
 }
