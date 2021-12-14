@@ -149,3 +149,13 @@ func (s *ServiceRouter) GetNodeIP(nodeUUID string) net.IP {
 	targetNode := s.getNodeByUUID(nodeUUID)
 	return targetNode.IpAddr
 }
+
+func (s *ServiceRouter) Close() {
+	//Stop Heartbeat
+	s.StopHeartBeat()
+
+	//Disconnect all nodes
+	for _, node := range s.NodeMap {
+		node.EndConnection()
+	}
+}

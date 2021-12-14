@@ -172,10 +172,12 @@ func main() {
 		js, _ = serverRouter.ExportRouterToJSON()
 		ioutil.WriteFile("serverRouter.json", []byte(js), 0777)
 
-		//Stopping heartbeat
-		clientRouter.StopHeartBeat()
-		serverRouter.StopHeartBeat()
-		log.Println("Demo ended. Press Ctrl + C to exit.")
+		//End all service router function
+		clientRouter.Close()
+		serverRouter.Close()
+
+		time.Sleep(1 * time.Second)
+		os.Exit(1)
 	}()
 
 	//Do a blocking loop

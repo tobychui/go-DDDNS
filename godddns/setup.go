@@ -1,14 +1,8 @@
 package godddns
 
 import (
-	"bytes"
 	"encoding/json"
-	"errors"
-	"io/ioutil"
-	"log"
-	"net"
 	"net/http"
-	"strconv"
 
 	"github.com/xlzd/gotp"
 )
@@ -30,68 +24,6 @@ type Credential struct {
 type TOTPPayload struct {
 	TOTPSecret   string
 	ReflectionIP string
-}
-
-/*
-	StartConnection
-	Establish connection to a new node using a given UUID
-	A node must be registered with AddNode first before StartConenction can be called
-*/
-func (n *Node) StartConnection(initIPAddr string, username string, password string) (string, error) {
-	//Check if the service router was correctly set-up
-	if n.parent.Options.AuthFunction == nil {
-		return "", errors.New("this service router does not contain a valid auth function")
-	}
-
-	//Use this ip address as its initial IP address
-	n.IpAddr = net.ParseIP(initIPAddr)
-
-	postBody, _ := json.Marshal(map[string]string{
-		"NodeUUID": n.parent.Options.DeviceUUID,
-		"Username": username,
-		"Password": password,
-	})
-	responseBody := bytes.NewBuffer(postBody)
-	protocol := "http://"
-	if n.RequireHTTPS {
-		protocol = "https://"
-	}
-	resp, err := http.Post(protocol+initIPAddr+":"+strconv.Itoa(n.Port)+n.ConnectionRelpath, "application/json", responseBody)
-	if err != nil {
-		return "", err
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	payload := TOTPPayload{}
-	err = json.Unmarshal(body, &payload)
-	resp.Body.Close()
-	if err != nil {
-		return string(body), err
-	}
-
-	reflectedIP := trimIpPort(payload.ReflectionIP)
-
-	if n.ReflectedIP == "" {
-		//Initialization
-		n.ReflectedIP = reflectedIP
-	}
-
-	if isPrivateIpString(n.ReflectedIP) {
-		n.ReflectedPrivateIP = reflectedIP
-	} else {
-		n.ReflectedIP = reflectedIP
-	}
-
-	n.SendTotpSecret = payload.TOTPSecret
-	if n.parent.Options.Verbal {
-		log.Println(n.parent.Options.DeviceUUID, " received payload for handshake: ", payload)
-	}
-
-	return payload.TOTPSecret, nil
 }
 
 /*
