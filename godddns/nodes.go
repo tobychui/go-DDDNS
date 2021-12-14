@@ -81,7 +81,7 @@ func (n *Node) StartConnection(initIPAddr string, username string, password stri
 
 func (n *Node) EndConnection() error {
 	//Check if node is connected
-	if n.parent.totpMapExists(n.UUID) <= 0 {
+	if n.parent.totpMapExists(n.UUID) < 0 {
 		return errors.New("node is not conennected")
 	}
 
