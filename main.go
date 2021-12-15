@@ -66,8 +66,7 @@ func main() {
 		s2cNode := serverRouter.NewNode(godddns.NodeOptions{
 			NodeID:        "client",
 			Port:          8082,
-			ConnectionRel: "/connect",
-			HeartBeatRel:  "/heartbeat",
+			RESTInterface: "/godddns",
 			RequireHTTPS:  false,
 		})
 		serverRouter.AddNode(s2cNode)
@@ -75,8 +74,7 @@ func main() {
 
 	//Start server router connection handler
 	go func() {
-		serverHandler.HandleFunc("/connect", serverRouter.HandleConnectionEstablishResponse)
-		serverHandler.HandleFunc("/heartbeat", serverRouter.HandleHeartBeatRequest)
+		serverHandler.HandleFunc("/godddns", serverRouter.HandleConnections)
 		log.Println("Server Router Started")
 		http.ListenAndServe(":8081", serverHandler)
 	}()
@@ -102,8 +100,7 @@ func main() {
 		c2sNode := clientRouter.NewNode(godddns.NodeOptions{
 			NodeID:        "server",
 			Port:          8081,
-			ConnectionRel: "/connect",
-			HeartBeatRel:  "/heartbeat",
+			RESTInterface: "/godddns",
 			RequireHTTPS:  false,
 		})
 
@@ -113,8 +110,7 @@ func main() {
 
 	//Start client router connection handler
 	go func() {
-		clientHandler.HandleFunc("/connect", clientRouter.HandleConnectionEstablishResponse)
-		clientHandler.HandleFunc("/heartbeat", clientRouter.HandleHeartBeatRequest)
+		clientHandler.HandleFunc("/godddns", clientRouter.HandleConnections)
 		log.Println("Client Router Started")
 		http.ListenAndServe(":8082", clientHandler)
 	}()

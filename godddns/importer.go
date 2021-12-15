@@ -31,6 +31,9 @@ func NewRouterFromJSON(jsonConfig string) (*ServiceRouter, error) {
 	if len(newRouter.NodeMap) == 0 && newRouter.Options.Verbal {
 		log.Println(newRouter.Options.DeviceUUID + " config has no 0 registered node!!!")
 	}
+
+	newRouter.IpChangeEventListener = nil
+
 	return &newRouter, nil
 }
 

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strconv"
 )
 
@@ -35,7 +36,11 @@ func (n *Node) StartConnection(initIPAddr string, username string, password stri
 	if n.RequireHTTPS {
 		protocol = "https://"
 	}
-	resp, err := http.Post(protocol+initIPAddr+":"+strconv.Itoa(n.Port)+n.ConnectionRelpath, "application/json", responseBody)
+
+	reqEndpoint := initIPAddr + ":" + strconv.Itoa(n.Port) + "/" + n.RESTfulInterface + "?opr=c"
+	reqEndpoint = protocol + filepath.ToSlash(filepath.Clean(reqEndpoint))
+
+	resp, err := http.Post(reqEndpoint, "application/json", responseBody)
 	if err != nil {
 		return "", err
 	}

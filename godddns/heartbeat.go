@@ -67,7 +67,7 @@ func (s *ServiceRouter) StopHeartBeat() {
 }
 
 //HandleHeartBeatRequest handle the heartbeat request from other nodes
-func (s *ServiceRouter) HandleHeartBeatRequest(w http.ResponseWriter, r *http.Request) {
+func (s *ServiceRouter) handleHeartBeatRequest(w http.ResponseWriter, r *http.Request) {
 	// Declare a new credential structure
 	var payload HeartBeatPacket
 
@@ -139,6 +139,10 @@ func (s *ServiceRouter) ExecuteHeartBeatCycle() {
 	if newIp.String() != "" && newIp.String() != s.DeviceIpAddr.String() {
 		//IP has changed.
 		s.LastIpUpdateTime = time.Now().Unix()
+		if s.IpChangeEventListener != nil {
+			//An event listener has bind to this router. Notify it as well.
+			s.IpChangeEventListener(newIp)
+		}
 	}
 	s.LastSyncTime = time.Now().Unix()
 	s.DeviceIpAddr = newIp
@@ -224,7 +228,7 @@ func (s *ServiceRouter) VoteRouterIPAddr() (net.IP, net.IP) {
 */
 func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 	//Assemble the target node heartbeat endpoint
-	reqEndpoint := node.IpAddr.String() + ":" + strconv.Itoa(node.Port) + "/" + node.HeartbeatRelpath
+	reqEndpoint := node.IpAddr.String() + ":" + strconv.Itoa(node.Port) + "/" + node.RESTfulInterface + "?opr=h"
 	reqEndpoint = filepath.ToSlash(filepath.Clean(reqEndpoint))
 
 	//Append protocol type
@@ -235,7 +239,7 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 	}
 
 	if s.Options.Verbal {
-		log.Println("Heartbeat request sending to: ", reqEndpoint, node.IpAddr.String())
+		log.Println("Heartbeat request sending to: ", reqEndpoint, " at ip address: ", node.IpAddr.String())
 	}
 
 	//Generate a TOTP for this node
@@ -262,12 +266,23 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 		//Post failed, clear all the IP fields
 		node.ReflectedIP = ""
 		node.ReflectedPrivateIP = ""
+		node.retryCount++
 		return err
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
+	}
+
+	if resp.StatusCode != 200 {
+		//Unable to reflect IP
+		if s.Options.Verbal {
+			log.Println(node.UUID+" declined heartbeat request from "+s.Options.DeviceUUID+": ", string(body), " with status code: ", resp.StatusCode)
+		}
+		node.ReflectedPrivateIP = ""
+		node.ReflectedIP = ""
+		return errors.New("heartbeat declined by remote node")
 	}
 
 	//The returned body should contain this node's ip address as seen by the other node
@@ -280,6 +295,7 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 
 	//Update node information
 	node.lastOnline = node.lastSync
+	node.retryCount = 0
 
 	if isPrivateIpString(reflectedIp) {
 		node.ReflectedPrivateIP = reflectedIp

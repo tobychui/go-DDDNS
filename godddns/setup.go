@@ -30,7 +30,7 @@ type TOTPPayload struct {
 	HandleConnectionEstablishResponse
 	Handle incoming connection and generate & return TOTP for the connecting node
 */
-func (s *ServiceRouter) HandleConnectionEstablishResponse(w http.ResponseWriter, r *http.Request) {
+func (s *ServiceRouter) handleConnectionEstablishResponse(w http.ResponseWriter, r *http.Request) {
 	// Declare a new credential structure
 	var cred Credential
 
