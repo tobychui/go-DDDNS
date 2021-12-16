@@ -227,6 +227,11 @@ func (s *ServiceRouter) VoteRouterIPAddr() (net.IP, net.IP) {
 	DDDNS implementation. Updates will be written directly to the node object pointed by the poitner
 */
 func (s *ServiceRouter) heartBeatToNode(node *Node) error {
+	if node.retryCount > heartBeatRetryCount {
+		//Enter sync mode
+		return s.syncNodeAddress(node)
+	}
+
 	//Assemble the target node heartbeat endpoint
 	reqEndpoint := node.IpAddr.String() + ":" + strconv.Itoa(node.Port) + "/" + node.RESTfulInterface + "?opr=h"
 	reqEndpoint = filepath.ToSlash(filepath.Clean(reqEndpoint))

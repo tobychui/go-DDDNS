@@ -2,7 +2,6 @@ package godddns
 
 import (
 	"errors"
-	"log"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -10,12 +9,10 @@ import (
 )
 
 type Node struct {
-	UUID             string //The UUID of the target Node
-	IpAddr           net.IP //The IP address of the Node
-	Port             int    //The port for connection
-	RESTfulInterface string //The RESTFUL request interface
-	//ConnectionRelpath  string //The relative path for Establish connection
-	//HeartbeatRelpath   string //The relative path for Heartbeat connection
+	UUID               string //The UUID of the target Node
+	IpAddr             net.IP //The IP address of the Node
+	Port               int    //The port for connection
+	RESTfulInterface   string //The RESTFUL request interface
 	ReflectedIP        string //The IP address reflected by the other node
 	ReflectedPrivateIP string //The IP address reflected by local nodes, should be LAN address
 	RequireHTTPS       bool   //The connection to the node must pass through HTTPS
@@ -32,9 +29,7 @@ type NodeOptions struct {
 	NodeID        string //The UUID of this node
 	Port          int    //The connection port for this node
 	RESTInterface string //The RESTFUL request interface
-	//ConnectionRel string //Relative path for the node connection endpoint
-	//HeartBeatRel  string //Relative path for the heartbeat endpoint
-	RequireHTTPS bool //Use HTTPS for this node
+	RequireHTTPS  bool   //Use HTTPS for this node
 }
 
 type TOTPRecord struct {
@@ -63,6 +58,10 @@ type ServiceRouter struct {
 	heartBeatTickerChannel chan bool
 }
 
+var (
+	heartBeatRetryCount int64 = 10 //Heartbeat will change to sync mode after this retry conunt is reached
+)
+
 func NewServiceRouter(options RouterOptions) *ServiceRouter {
 	return &ServiceRouter{
 		NodeMap:                    []*Node{},
@@ -88,7 +87,7 @@ func (s *ServiceRouter) HandleConnections(w http.ResponseWriter, r *http.Request
 		s.handleHeartBeatRequest(w, r)
 	} else if oprType == "s" {
 		//Sync Request
-		log.Println("WIP")
+		s.handleSyncRequestByLostNode(w, r)
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("400 - Bad Request"))
