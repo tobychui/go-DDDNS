@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/xlzd/gotp"
@@ -106,9 +107,15 @@ func (s *ServiceRouter) handleSyncRequestByLostNode(w http.ResponseWriter, r *ht
 	}
 
 	//Check if the asking node UUID exists in this node's registered node list
+	targetNode := s.getNodeByUUID(payload.NodeUUID)
+	if targetNode == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Node not register on this host"))
+		return
+	}
 
 	//Reply the IP address of the requesting node from this node's perspective
-	w.Write([]byte(r.RemoteAddr))
+	w.Write([]byte(targetNode.IpAddr))
 }
 
 func (s *ServiceRouter) resolveNodeIpFromAskingNode(node *Node, askingNode *Node) (net.IP, error) {
@@ -150,6 +157,16 @@ func (s *ServiceRouter) resolveNodeIpFromAskingNode(node *Node, askingNode *Node
 		return nil, err
 	}
 
-	log.Println(string(body))
-	return nil, nil
+	if resp.StatusCode != 200 {
+		//Something went wrong.
+		return nil, errors.New(string(body))
+	}
+
+	//The response is ip address of the target node. Update the node's IP
+	syncedIpString := strings.TrimSpace(string(body))
+	syncedIp := net.ParseIP(syncedIpString)
+	if syncedIp == nil {
+		return nil, errors.New("ip sync from nearby node is invalid")
+	}
+	return syncedIp, nil
 }

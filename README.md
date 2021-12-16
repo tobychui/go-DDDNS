@@ -15,11 +15,71 @@ All of the ip address information has to be come from its connected nodes and th
 
 If this project is proofed to be working and secure, this will be added to the ArozOS project as the fundamental section of its Clustering System.
 
+## Usage
+
+Assume the network only contains two nodes, node1 and node2 with the following settings:
+
+| Node ID    | IP Address    | Connection Endpoint |
+| ---------- | ------------- | ------------------- |
+| NAT Router | 192.168.0.1   | N/A                 |
+| node1      | 192.168.0.100 | /godddns            |
+| node2      | 192.168.0.101 | /godddns            |
+
+The demo code showcase the node1's logic with go-DDDNS
+
+```go
+import (
+	godddns "github.com/tobychui/go-DDDNS/godddns"
+)
+
+func ValidateCred(username string, password string) bool{
+    //Implement your username and password check here
+	return true
+}
+
+func main(){
+    //Create new service router as node1 (this node)
+		node1 = godddns.NewServiceRouter(godddns.RouterOptions{
+            DeviceUUID:   "node1",
+            AuthFunction: ValidateCred,
+            SyncInterval: 10,
+        })
+        
+        //Add node2 node into the client list
+		node2 := clientRouter.NewNode(godddns.NodeOptions{
+			NodeID:        "node2",
+			Port:          8080,
+			RESTInterface: "/godddns",
+			RequireHTTPS:  false,
+		})
+		node1.AddNode(node2)
+        
+    	//Start connection listener at port 8080
+        go func() {
+            http.HandleFunc("/godddns", node1.HandleConnections)
+            http.ListenAndServe(":8080", serverHandler)
+        }()
+        
+    	//Start connection to node2, fill in the current node2 ip address and login credentials
+    	totpSecret, err := node2.StartConnection("192.168.0.101", "username", "password")
+    
+    	//Start Heartbeat
+        serviceRouter.StartHeartBeat()
+    	
+    	//Do a blocking loop
+    	select {}
+    
+        //To end the node and unregister all nodes, call to
+        //node1.Close()
+}
+
+```
+
 
 
 ## License
 
-All right reserved 
+MIT
 
-(Will switch to open source license later after this is completed. For now, please don't do anything with it, **especially don't use it in production**, however comments and ideas are welcomed via **issues**)
+(For now, please don't do anything with it, **especially don't use it in production**, however comments and ideas are welcomed via **issues**)
 
