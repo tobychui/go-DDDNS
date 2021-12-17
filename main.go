@@ -13,10 +13,20 @@ import (
 )
 
 /*
-	Go-DDDNS Example with 4 nodes
+	Go-DDDNS Example (I might want to change this name later)
 
-	Lets assume there are 4 network nodes in a cluster
+	For first time compile & start up, this demo will do the followings:
 
+	1. Create two service router for go-DDDNS
+	2. Cross register both router to each other
+	3. Lets them heartbeat and keep in sync with the other's IP address
+	4. Write the configuration to json file
+
+	For 2nd time startup, this demo will do the followings:
+
+	1. Load service router from json config file
+	2. Inject auth function into the loaded service router
+	3. Resume heartbeat connections
 */
 
 //Demo function for validate user account
