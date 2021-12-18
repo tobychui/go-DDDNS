@@ -229,6 +229,9 @@ func (s *ServiceRouter) VoteRouterIPAddr() (net.IP, net.IP) {
 func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 	if node.retryCount > heartBeatRetryCount {
 		//Enter sync mode
+		if s.Options.Verbal {
+			log.Println(node.UUID + " CANNOT BE CONNECTED MORE THAN RETRY COUNT!!!!!")
+		}
 		return s.syncNodeAddress(node)
 	}
 
