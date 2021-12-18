@@ -33,7 +33,7 @@ type SyncRequestPackage struct {
 func (s *ServiceRouter) syncNodeAddress(node *Node) error {
 	//Get the nodes that is recently updated
 	latestUpdatedNodes := []*Node{}
-	timeBaseline := time.Now().Unix() - 2*s.Options.SyncInterval
+	timeBaseline := time.Now().Unix() - (heartBeatRetryCount-1)*s.Options.SyncInterval
 	for _, node := range s.NodeMap {
 		if node.lastOnline > timeBaseline {
 			//This node is newly updated
@@ -43,7 +43,7 @@ func (s *ServiceRouter) syncNodeAddress(node *Node) error {
 
 	if len(latestUpdatedNodes) == 0 {
 		if s.Options.Verbal {
-			log.Println("Unable to reach any nodes. Entering orphan mode.")
+			log.Fatal("Unable to reach any nodes. Entering orphan mode.")
 		}
 		return errors.New("node in orphan mode")
 	}
