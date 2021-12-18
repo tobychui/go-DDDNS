@@ -280,14 +280,22 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 		return err
 	}
 
-	if resp.StatusCode != 200 {
-		//Unable to reflect IP
-		if s.Options.Verbal {
-			log.Println(node.UUID+" declined heartbeat request from "+s.Options.DeviceUUID+": ", string(body), " with status code: ", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusUnauthorized {
+			//Do a reconnection
+			log.Println(node.UUID+" requesting new registration from "+s.Options.DeviceUUID+": ", string(body), " with status code: ", resp.StatusCode)
+			node.StartConnection(node.IpAddr.String(), node.retryUsername, node.retryPassword)
+			return nil
+		} else {
+			//Unable to reflect IP
+			if s.Options.Verbal {
+				log.Println(node.UUID+" declined heartbeat request from "+s.Options.DeviceUUID+": ", string(body), " with status code: ", resp.StatusCode)
+			}
+			node.ReflectedPrivateIP = ""
+			node.ReflectedIP = ""
+			return errors.New("heartbeat declined by remote node")
 		}
-		node.ReflectedPrivateIP = ""
-		node.ReflectedIP = ""
-		return errors.New("heartbeat declined by remote node")
+
 	}
 
 	//The returned body should contain this node's ip address as seen by the other node

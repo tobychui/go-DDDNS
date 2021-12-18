@@ -75,6 +75,9 @@ func (n *Node) StartConnection(initIPAddr string, username string, password stri
 		log.Println(n.parent.Options.DeviceUUID, " received payload for handshake: ", payload)
 	}
 
+	n.retryUsername = username
+	n.retryPassword = password
+
 	return payload.TOTPSecret, nil
 }
 

@@ -18,10 +18,13 @@ type Node struct {
 	RequireHTTPS       bool   //The connection to the node must pass through HTTPS
 	SendTotpSecret     string //The TOTPSecret for sending message
 
-	lastOnline int64          //Last time this node is connectable
-	lastSync   int64          //Last time this device tries to conenct this node
-	retryCount int64          //The number of retries done on this node
-	parent     *ServiceRouter `json:"-"` //The service router that this node belongs to
+	lastOnline    int64          //Last time this node is connectable
+	lastSync      int64          //Last time this device tries to conenct this node
+	retryCount    int64          //The number of retries done on this node
+	retryUsername string         //The username for retry
+	retryPassword string         //The password for retry
+	publicKey     []byte         //The public key of this node
+	parent        *ServiceRouter `json:"-"` //The service router that this node belongs to
 }
 
 //New Node Options
