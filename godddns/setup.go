@@ -2,6 +2,7 @@ package godddns
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/xlzd/gotp"
@@ -73,6 +74,10 @@ func (s *ServiceRouter) handleConnectionEstablishResponse(w http.ResponseWriter,
 	}
 
 	result, _ := json.Marshal(payload)
+
+	if s.Options.Verbal {
+		log.Println(cred.NodeUUID + " has established connection with this node(" + s.Options.DeviceUUID + ")")
+	}
 
 	//Return TOTP to request client
 	w.Write(result)
