@@ -2,9 +2,11 @@ package godddns
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -62,7 +64,7 @@ type ServiceRouter struct {
 }
 
 var (
-	heartBeatRetryCount int64 = 10 //Heartbeat will change to sync mode after this retry conunt is reached
+	heartBeatRetryCount int64 = 3 //Heartbeat will change to sync mode after this retry conunt is reached
 )
 
 func NewServiceRouter(options RouterOptions) *ServiceRouter {
@@ -150,8 +152,9 @@ func (s *ServiceRouter) RemoveNode(nodeUUID string) error {
 
 //Add the node to this router
 func (s *ServiceRouter) NodeRegistered(nodeUUID string) bool {
+	nodeUUID = strings.TrimSpace(nodeUUID)
 	for _, node := range s.NodeMap {
-		if node.UUID == nodeUUID {
+		if strings.TrimSpace(node.UUID) == nodeUUID {
 			return true
 		}
 	}
@@ -181,6 +184,15 @@ func (s *ServiceRouter) GetNodeIP(nodeUUID string) net.IP {
 	return targetNode.IpAddr
 }
 
+func (s *ServiceRouter) GetNeighbourNodes() []string {
+	nodeUUIDs := []string{}
+	for _, node := range s.NodeMap {
+		nodeUUIDs = append(nodeUUIDs, node.UUID)
+	}
+
+	return nodeUUIDs
+}
+
 func (s *ServiceRouter) Close() {
 	//Stop Heartbeat
 	s.StopHeartBeat()
@@ -188,5 +200,11 @@ func (s *ServiceRouter) Close() {
 	//Disconnect all nodes
 	for _, node := range s.NodeMap {
 		node.EndConnection()
+	}
+}
+
+func (s *ServiceRouter) PrettyPrintTOTPMap() {
+	for _, totpR := range s.TOTPMap {
+		fmt.Println(totpR.RemoteUUID + ": " + totpR.RecvTOTPSecret)
 	}
 }

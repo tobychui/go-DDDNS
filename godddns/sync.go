@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -43,7 +44,7 @@ func (s *ServiceRouter) syncNodeAddress(node *Node) error {
 
 	if len(latestUpdatedNodes) == 0 {
 		if s.Options.Verbal {
-			log.Fatal("Unable to reach any nodes. Entering orphan mode.")
+			fmt.Println("[WARNING] Unable to reach any nodes. " + s.Options.DeviceUUID + " in orphan mode!!")
 		}
 		return errors.New("node in orphan mode")
 	}
@@ -52,16 +53,22 @@ func (s *ServiceRouter) syncNodeAddress(node *Node) error {
 	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
 	askingNode := latestUpdatedNodes[rand.Intn(len(latestUpdatedNodes))]
 
+	if s.Options.Verbal {
+		fmt.Println("[WARNING] "+s.Options.DeviceUUID+" is asking for "+node.UUID+"'s IP from sync node: ", askingNode.UUID)
+	}
 	//Ask the asking node for the target node's ip address
 	newNodeIp, err := s.resolveNodeIpFromAskingNode(node, askingNode)
 	if err != nil {
+		fmt.Println("[ERROR] Unable to perform sync from", s.Options.DeviceUUID, " to ", askingNode.UUID, err.Error())
 		return err
 	}
 
 	if newNodeIp.String() == node.IpAddr.String() {
 		//IP didnt change as seen from the 3rd node. Ask another random node in next cycle
 		if s.Options.Verbal {
-			log.Println(node.UUID + " update not yet iterate to this node. Checking in next cycle.")
+			if s.Options.Verbal {
+				fmt.Println("[Sync] IP Sync from " + askingNode.UUID + " is identical as the one stored in " + s.Options.DeviceUUID + ". Waiting for next iteration...")
+			}
 		}
 	} else {
 		//IP addr different. Update it and reset retry count
@@ -114,8 +121,12 @@ func (s *ServiceRouter) handleSyncRequestByLostNode(w http.ResponseWriter, r *ht
 		return
 	}
 
+	if s.Options.Verbal {
+		log.Println("[Sync] " + s.Options.DeviceUUID + " responding to " + payload.NodeUUID + " request on IP address of node " + payload.AskingUUID)
+	}
+
 	//Reply the IP address of the requesting node from this node's perspective
-	w.Write([]byte(targetNode.IpAddr))
+	w.Write([]byte(targetNode.IpAddr.String()))
 }
 
 func (s *ServiceRouter) resolveNodeIpFromAskingNode(node *Node, askingNode *Node) (net.IP, error) {

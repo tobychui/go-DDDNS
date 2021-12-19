@@ -1,7 +1,6 @@
 package godddns
 
 import (
-	"fmt"
 	"net"
 	"strings"
 )
@@ -68,19 +67,12 @@ func trimIpPort(ipWithPort string) string {
 */
 func (s *ServiceRouter) totpMapExists(nodeUUID string) int {
 	for i := 0; i < len(s.TOTPMap); i++ {
-		totpMap := s.TOTPMap[i]
-		if totpMap.RemoteUUID == nodeUUID {
+		thisRecord := s.TOTPMap[i]
+		if thisRecord.RemoteUUID == nodeUUID {
 			return i
 		}
 	}
 	return -1
-}
-
-func (s *ServiceRouter) prettyPrintTotpMap() {
-	fmt.Println("Printing TOTP MAP for node: " + s.Options.DeviceUUID)
-	for _, totpRecord := range s.TOTPMap {
-		fmt.Println(totpRecord.RemoteUUID + " => " + totpRecord.RecvTOTPSecret)
-	}
 }
 
 //getNodebyUUID return the node that with the given uuid, return nil if not found

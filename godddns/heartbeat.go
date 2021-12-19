@@ -88,7 +88,9 @@ func (s *ServiceRouter) handleHeartBeatRequest(w http.ResponseWriter, r *http.Re
 
 	if targetTotpSecret == "" {
 		//No record found, target UUID did not register on this node
-		http.Error(w, "node UUID not registered", http.StatusUnauthorized)
+		http.Error(w, "node TOTP not registered", http.StatusUnauthorized)
+		log.Println(s.Options.DeviceUUID + " TOTP Map Dump: ")
+		s.PrettyPrintTOTPMap()
 		return
 	}
 
@@ -97,8 +99,10 @@ func (s *ServiceRouter) handleHeartBeatRequest(w http.ResponseWriter, r *http.Re
 
 	if !isValidTotp {
 		//Response to invalid TOTP
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("400 - Invalid TOTP"))
+		log.Println(s.Options.DeviceUUID + " TOTP Map Dump: ")
+		s.PrettyPrintTOTPMap()
 		return
 	}
 
@@ -227,11 +231,8 @@ func (s *ServiceRouter) VoteRouterIPAddr() (net.IP, net.IP) {
 	DDDNS implementation. Updates will be written directly to the node object pointed by the poitner
 */
 func (s *ServiceRouter) heartBeatToNode(node *Node) error {
-	if node.retryCount > heartBeatRetryCount {
+	if node.retryCount >= heartBeatRetryCount {
 		//Enter sync mode
-		if s.Options.Verbal {
-			log.Println(node.UUID + " CANNOT BE CONNECTED MORE THAN RETRY COUNT!!!!!")
-		}
 		return s.syncNodeAddress(node)
 	}
 
@@ -274,6 +275,9 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 		//Post failed, clear all the IP fields
 		node.ReflectedIP = ""
 		node.ReflectedPrivateIP = ""
+		if s.Options.Verbal {
+			log.Println(err.Error())
+		}
 		node.retryCount++
 		return err
 	}
@@ -293,6 +297,8 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 			//Unable to reflect IP
 			if s.Options.Verbal {
 				log.Println(node.UUID+" declined heartbeat request from "+s.Options.DeviceUUID+": ", string(body), " with status code: ", resp.StatusCode)
+				log.Println(s.Options.DeviceUUID + " TOTP Map Dump: ")
+				s.PrettyPrintTOTPMap()
 			}
 			node.ReflectedPrivateIP = ""
 			node.ReflectedIP = ""
@@ -303,7 +309,7 @@ func (s *ServiceRouter) heartBeatToNode(node *Node) error {
 
 	//The returned body should contain this node's ip address as seen by the other node
 	if s.Options.Verbal {
-		log.Println("Heartbeat reflected IP: ", string(body), " Error: ", err)
+		log.Println(node.UUID+" reflected IP to "+s.Options.DeviceUUID, string(body), " Error: ", err)
 	}
 
 	reflectedIp := string(body) //This node IP as seens by the requested node
