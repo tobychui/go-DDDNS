@@ -26,9 +26,9 @@ import (
 */
 
 type SyncRequestPackage struct {
-	NodeUUID   string
-	TOTP       string
-	AskingUUID string
+	NodeUUID string
+	TOTP     string
+	LostUUID string
 }
 
 func (s *ServiceRouter) syncNodeAddress(node *Node) error {
@@ -114,7 +114,7 @@ func (s *ServiceRouter) handleSyncRequestByLostNode(w http.ResponseWriter, r *ht
 	}
 
 	//Check if the asking node UUID exists in this node's registered node list
-	targetNode := s.getNodeByUUID(payload.NodeUUID)
+	targetNode := s.getNodeByUUID(payload.LostUUID)
 	if targetNode == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Node not register on this host"))
@@ -122,20 +122,20 @@ func (s *ServiceRouter) handleSyncRequestByLostNode(w http.ResponseWriter, r *ht
 	}
 
 	if s.Options.Verbal {
-		log.Println("[Sync] " + s.Options.DeviceUUID + " responding to " + payload.NodeUUID + " request on IP address of node " + payload.AskingUUID)
+		log.Println("[Sync] " + s.Options.DeviceUUID + " responding to " + payload.NodeUUID + " request on IP address of node " + payload.LostUUID)
 	}
 
 	//Reply the IP address of the requesting node from this node's perspective
 	w.Write([]byte(targetNode.IpAddr.String()))
 }
 
-func (s *ServiceRouter) resolveNodeIpFromAskingNode(node *Node, askingNode *Node) (net.IP, error) {
+func (s *ServiceRouter) resolveNodeIpFromAskingNode(lostNode *Node, askingNode *Node) (net.IP, error) {
 	//Assemble the target node heartbeat endpoint
 	reqEndpoint := askingNode.IpAddr.String() + ":" + strconv.Itoa(askingNode.Port) + "/" + askingNode.RESTfulInterface + "?opr=s"
 	reqEndpoint = filepath.ToSlash(filepath.Clean(reqEndpoint))
 
 	//Append protocol type
-	if node.RequireHTTPS {
+	if askingNode.RequireHTTPS {
 		reqEndpoint = "https://" + reqEndpoint
 	} else {
 		reqEndpoint = "http://" + reqEndpoint
@@ -147,9 +147,9 @@ func (s *ServiceRouter) resolveNodeIpFromAskingNode(node *Node, askingNode *Node
 
 	//POST the request asking for the target node
 	postBody, _ := json.Marshal(map[string]string{
-		"NodeUUID":   s.Options.DeviceUUID,
-		"TOTP":       token,
-		"AskingUUID": node.UUID,
+		"NodeUUID": s.Options.DeviceUUID,
+		"TOTP":     token,
+		"LostUUID": lostNode.UUID,
 	})
 	responseBody := bytes.NewBuffer(postBody)
 
