@@ -71,6 +71,9 @@ func (s *ServiceRouter) syncNodeAddress(node *Node) error {
 			}
 		}
 	} else {
+		if s.Options.Verbal {
+			fmt.Println("[Sync] IP Sync from "+askingNode.UUID+" shows "+node.UUID+" ip is: ", newNodeIp.String())
+		}
 		//IP addr different. Update it and reset retry count
 		node.IpAddr = newNodeIp
 		node.retryCount = 0
