@@ -69,7 +69,7 @@ func (s *ServiceRouter) syncNodeAddress(node *Node) error {
 			if s.Options.Verbal {
 				fmt.Println("[Sync] IP Sync from " + askingNode.UUID + " is identical as the one stored in " + s.Options.DeviceUUID + ". Waiting for next iteration...")
 				//Try connect in the next iteration, sync again after 2 iterations
-				node.retryCount -= 2
+				node.retryCount = heartBeatRetryCount - 1
 			}
 		}
 	} else {
