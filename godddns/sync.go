@@ -131,7 +131,7 @@ func (s *ServiceRouter) handleSyncRequestByLostNode(w http.ResponseWriter, r *ht
 
 func (s *ServiceRouter) resolveNodeIpFromAskingNode(node *Node, askingNode *Node) (net.IP, error) {
 	//Assemble the target node heartbeat endpoint
-	reqEndpoint := node.IpAddr.String() + ":" + strconv.Itoa(askingNode.Port) + "/" + askingNode.RESTfulInterface + "?opr=s"
+	reqEndpoint := askingNode.IpAddr.String() + ":" + strconv.Itoa(askingNode.Port) + "/" + askingNode.RESTfulInterface + "?opr=s"
 	reqEndpoint = filepath.ToSlash(filepath.Clean(reqEndpoint))
 
 	//Append protocol type
