@@ -147,13 +147,13 @@ Under the normal operation conditions, the nodes will first setup (once the syst
 
 | Setup                                     | Heart-Beat                                        |
 | ----------------------------------------- | ------------------------------------------------- |
-| ![setup timeline](img/setup timeline.png) | ![heartbeat timeline](img/heartbeat timeline.png) |
+| ![setup timeline](img/setup%20timeline.png) | ![heartbeat timeline](img/heartbeat%20timeline.png) |
 
 However, when there are IP change in one node, the node will perform a recovery action that listen to the IP changing node for broadcasting its new IP in the next heartbeat cycle. When two or more nodes IP has changed in one single heartbeat cycle, the sync protocol will be used instead. See the diagram below for how the protocol recover its status from connection error.
 
 | 1-node IP change in >= 2 node scenario              | 2-nodes IP change in >= 3 node scenario |
 | --------------------------------------------------- | --------------------------------------- |
-| ![heartbeat ip change](img/heartbeat ip change.png) | ![sync protocol](img/sync protocol.png) |
+| ![heartbeat ip change](img/heartbeat%20ip%20change.png) | ![sync protocol](img/sync%20protocol.png) |
 
 With this protocol, all nodes within the cluster will know the IP address of all other nodes within the network. 
 
