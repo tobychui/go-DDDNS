@@ -42,7 +42,34 @@ thisNode.StartHeartBeat()
 select {}
 ```
 
-### Minimum Working Example 
+To get the node's public IP address as seen from other nodes from the cluster, use the following
+
+```
+thisNode.DeviceIpAddr.String()
+```
+
+To see which nodes this node has connection with, use the following
+
+```
+//Will return the UUID of the neighbour nodes as []string
+uuids := thisNode.GetNeighbourNodes() 
+
+//To extract a remote node object from this node's cache table
+nodeObject := thisNode.GetNodeByUUID(uuids[0])
+
+//Or get the remote node Ip address directly from this node
+nodeIp := thisNode.GetNodeIP(uuids[0])
+```
+
+To shutdown the heartbeat and service Routers, use the Close function
+
+```
+thisNode.Close()
+```
+
+
+
+### Minimum Working Example ( 2 nodes)
 
 This module require at least two nodes across network to work properly.  The following example assumed the following network conditions:
 
@@ -114,11 +141,22 @@ Three-nodes IP change in one heartbeat cycle and synchronize from static node de
 
 [![](https://img.youtube.com/vi/UcgDCWygO2Q/0.jpg)](https://www.youtube.com/watch?v=UcgDCWygO2Q)
 
+## How it Works
 
+Under the normal operation conditions, the nodes will first setup (once the system started) and perform heartbeat to nodes to keep track of all other node's IP within the cluster.
+
+| Setup                                     | Heart-Beat                                        |
+| ----------------------------------------- | ------------------------------------------------- |
+| ![setup timeline](img/setup timeline.png) | ![heartbeat timeline](img/heartbeat timeline.png) |
+
+However, when there are IP change in one node, the node will perform a recovery action that listen to the IP changing node for broadcasting its new IP in the next heartbeat cycle. When two or more nodes IP has changed in one single heartbeat cycle, the sync protocol will be used instead. See the diagram below for how the protocol recover its status from connection error.
+
+| 1-node IP change in >= 2 node scenario              | 2-nodes IP change in >= 3 node scenario |
+| --------------------------------------------------- | --------------------------------------- |
+| ![heartbeat ip change](img/heartbeat ip change.png) | ![sync protocol](img/sync protocol.png) |
+
+With this protocol, all nodes within the cluster will know the IP address of all other nodes within the network. 
 
 ## License
 
 MIT
-
-(For now, please don't do anything with it, **especially don't use it in production**, however comments and ideas are welcomed via **issues**)
-
