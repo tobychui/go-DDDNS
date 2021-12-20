@@ -17,7 +17,34 @@ If this project is proofed to be working and secure, this will be added to the A
 
 ## Usage
 
-Assume the network only contains two nodes, node1 and node2 with the following settings:
+### Basics
+
+```Go
+import (
+	godddns "github.com/tobychui/go-DDDNS/godddns"
+)
+
+func ValidateCred(username string, password string) bool{
+    return (username == "user" && password == "password")
+}
+
+//Create a new node object
+thisNode := godddns.NewServiceRouter(godddns.RouterOptions{
+    DeviceUUID:   "thisNode",
+    AuthFunction: ValidateCred,
+    SyncInterval: 10,
+})
+
+//Start heartbeat to other nodes
+thisNode.StartHeartBeat()
+
+//Do a blocking loop
+select {}
+```
+
+### Minimum Working Example 
+
+This module require at least two nodes across network to work properly.  The following example assumed the following network conditions:
 
 | Node ID    | IP Address    | Connection Endpoint |
 | ---------- | ------------- | ------------------- |
@@ -74,6 +101,18 @@ func main(){
 }
 
 ```
+
+Alternatively, you can perform testing to the module with three nodes spawned out from the same process but listen to different ports to test for implementation logic errors (but not runtime / network errors). See main.go in go-DDDNS repo for such testing demo. 
+
+## Demo Videos
+
+Two-nodes IP tracking demo
+
+[![](https://img.youtube.com/vi/Qnpuubt70I4/0.jpg)](https://www.youtube.com/watch?v=Qnpuubt70I4)
+
+Three-nodes IP change in one heartbeat cycle and synchronize from static node demo
+
+[![](https://img.youtube.com/vi/UcgDCWygO2Q/0.jpg)](https://www.youtube.com/watch?v=UcgDCWygO2Q)
 
 
 

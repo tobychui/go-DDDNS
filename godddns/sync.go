@@ -46,6 +46,9 @@ func (s *ServiceRouter) syncNodeAddress(node *Node) error {
 		if s.Options.Verbal {
 			fmt.Println("[WARNING] Unable to reach any nodes. " + s.Options.DeviceUUID + " in orphan mode!!")
 		}
+
+		//Retry next time after longer period of time
+		node.retryCount = 0
 		return errors.New("node in orphan mode")
 	}
 
